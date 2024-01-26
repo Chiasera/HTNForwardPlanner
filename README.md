@@ -209,3 +209,24 @@ public async Task GoTowardsMinotaur()
 }
 ```
 Each action waits for the completion of the previous one by using asynchronous programming patterns, ensuring the plan is executed in the correct sequence.
+
+# Action Termination and Plan Visualization
+
+Once actions are initiated, it is crucial to await their completion before proceeding. Below is an example of how to implement a wait for an event to terminate in the world state system.
+
+```csharp
+public async static Task RegisterWorldEvent(EventType type, Adventurer adventurer, GameObject target, CancellationTokenSource cts)
+{
+    // Implementation details...
+}
+```
+
+## Editor Visualization
+In Unity's Editor, one can observe the planned actions and current action of a character. It's important to note that the actions are displayed in a stack, meaning the most recent action is shown at the top.
+![image](https://github.com/Chiasera/HTNForwardPlanner/assets/70693638/875e524e-8983-4494-b7b3-40c885306e60)
+
+
+## Final Considerations
+Important: The current simulation model has limitations. The computations for similarity and probability distributions are not accurately representing the decision-making process an agent should ideally perform. Consequently, agents in the simulation tend to uniformly attack the Minotaur, which may not be the desired behavior.
+
+Please take this into account when evaluating the system's performance and consider it when planning further improvements or iterations of the AI logic.
