@@ -84,4 +84,128 @@ The HTN for a given adventurer is detailed below, outlining the decision process
 
 The above structure provides a framework for the adventurer's AI, enabling a certain level of autonomous operation within the game environment.
 
+# Adventurers' AI and HTN Planning
 
+## Preconditions for Actions
+
+The Adventurers' AI is designed with specific preconditions for each action:
+
+- **Move Towards Target**: Must be able to move (`CanMove`)
+- **Notify Other Adventurers**: Must be alive
+- **Move to Nearest Safe Zone**: Must be able to move (`CanMove`)
+- **Approach the Minotaur**: Must be able to move (`CanMove`)
+- **Attack the Minotaur**: Must be able to attack (`CanAttack`)
+- **Approach Nearest Adventurer**: Must be able to move (`CanMove`)
+- **Go to Nearest Rest Place**: Must be able to move (`CanMove`)
+- **Rest**: Subject to a cooldown of 3 seconds
+- **Pathfind to Treasure**: Must be able to move (`CanMove`)
+- **Pick Up Treasure**: Must be able to pick up the treasure (subject to cooldown and proximity)
+- **Deliver Treasure to Nearest Corner**: Must have the treasure (`HasTreasure`)
+
+## Postconditions
+
+None
+
+## HTN Design
+
+The Hierarchical Task Network (HTN) for the Adventurers is based on evaluating `MovePotential`, which influences the decision-making for compound tasks. Here is an overview of the design pattern and C# implementation details:
+
+### MovePotential
+
+Each task is associated with a `MovePotential` that defines the heuristic for the decision-making process. It encapsulates the parameters influencing whether a particular action should be taken.
+
+### CompoundTask Class
+
+```csharp
+public class CompoundTask : GameTask
+{
+    public MovePotential MovePotential;
+
+    public GameTask ChooseTask(Adventurer adventurer)
+    {
+        // Choose random task
+        List<CompoundTask> compoundSubTasks = new List<CompoundTask>();
+        foreach (var subtask in subtasks)
+        {
+            if (subtask.GetType() == typeof(CompoundTask))
+            {
+                compoundSubTasks.Add((CompoundTask)subtask);
+            }
+        }
+        
+        if (compoundSubTasks.Count > 0)
+        {
+            return GetBestMatchingTask(adventurer, compoundSubTasks);
+        }
+        else
+        {
+            return null;
+        }
+    }
+}
+
+public class MovePotential
+{
+    public float Attack;
+    public float Move;
+    public float Flee;
+    public float Bait;
+    public float Idle;
+
+    public float GetAverage()
+    {
+        return (Attack + Move + Flee + Bait + Idle) / 5;
+    }
+
+    public MovePotential(float attack, float move, float flee, float bait, float idle)
+    {
+        Attack = attack;
+        Move = move;
+        Flee = flee;
+        Bait = bait;
+        Idle = idle;
+    }
+}
+```
+
+# Action Planning and Execution
+
+Actions are appended to a plan and tracked for later execution. This involves passing an asynchronous delegate into our plan to enable awaiting upon execution. Below is the code snippet handling the action executions. The `WorldState` class, attached to the game manager, plays a pivotal role by providing a vector for the adventurer and facilitating action-target-source relationships.
+
+## Registering Actions
+
+Each action related to a task is first registered. Here is an example of how a primitive task is registered:
+
+```csharp
+// Primitive Tasks
+PrimitiveTask goTowardsMinotaur = new PrimitiveTask(adventurer.GoTowardsMinotaur);
+goTowardsMinotaur.Name = "Go Towards Minotaur";
+goTowardsMinotaur.AddPrecondition(adventurer.CanMove);
+```
+## Executing Actions in Orde
+Actions are then added to the plan and executed asynchronously in the specified order:
+``` csharp
+private async void onWaitExecute()
+{
+    await Task.Delay(3000);
+    htn.ExecuteHTN();
+    for (int i = 0; i < plan.Count; i++)
+    {
+        Debug.Log(plan.ElementAt(i));
+    }
+    await Task.Yield();
+    await ExecuteActions();
+}
+
+public async Task GoTowardsMinotaur()
+{
+    WorldState.AssassinAdventurer = this;
+    if(WorldState.Minotaur == null)
+    {
+        WorldState.Minotaur = FindObjectOfType<Minotaur>();
+        BoatAgent.Target = WorldState.Minotaur.transform;
+        await WorldState.RegisterWorldEvent(EventType.TargetReached, this, WorldState.Minotaur.gameObject, cts);
+    }
+}
+```
+Each action waits for the completion of the previous one by using asynchronous programming patterns, ensuring the plan is executed in the correct sequence.
